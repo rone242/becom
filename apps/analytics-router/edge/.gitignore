@@ -1,0 +1,6 @@
+# Wrangler local state and build output
+.wrangler/
+dist/
+
+# Local dev secrets — never commit
+.dev.vars

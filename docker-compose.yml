@@ -1,0 +1,106 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: becom-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    networks:
+      - becom-network
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: becom
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: becom-redis
+    restart: always
+    ports:
+      - "6380:6379" # বাইরে থেকে টেস্ট করার জন্য 6380, ডকার নেটওয়ার্কে 6379
+    networks:
+      - becom-network
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: becom-api
+    restart: unless-stopped
+    # সতর্কতা: .env ফাইলের ভেতর REDIS_URL থাকলে সেটা যেন redis://redis:6379 হয়, localhost নয়।
+    env_file:
+      - apps/api/.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "4000:4000"
+    networks:
+      - becom-network
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      REDIS_URL: redis://redis:6379
+      FRONTEND_URL: http://becom-web:3000
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: becom-web
+    restart: unless-stopped
+    depends_on:
+      - api
+      - analytics-router
+    ports:
+      - "3000:3000"
+    networks:
+      - becom-network
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-changeme-nextauth-secret}
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api
+      SERVER_API_URL: http://becom-api:4000/api
+      # আর্কিটেকচার অনুযায়ী ফ্রন্টএন্ড এজ-ওয়ার্কারে পাঠাবে, তবে লোকাল টেস্টের জন্য রাউটার পোর্ট 5001 এ ফিক্স করা হলো
+      NEXT_PUBLIC_ANALYTICS_ROUTER_URL: http://localhost:4001/api
+      SERVER_ANALYTICS_ROUTER_URL: http://becom-analytics-router:5001/api
+      NEXT_PUBLIC_GTM_ID: ${NEXT_PUBLIC_GTM_ID:-}
+
+  analytics-router:
+    build:
+      context: .
+      dockerfile: apps/analytics-router/Dockerfile
+    container_name: becom-analytics-router
+    restart: unless-stopped
+    env_file:
+      - apps/analytics-router/.env
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "4001:5001" # আর্কিটেকচার ডকের সাথে মিল রেখে পোর্ট 5001 করা হলো
+    networks:
+      - becom-network
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      REDIS_URL: redis://redis:6379
+      VIP_PURCHASE_MILESTONE: ${VIP_PURCHASE_MILESTONE:-10}
+      INTEGRATION_CACHE_TTL: ${INTEGRATION_CACHE_TTL:-3600}
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:5001/api/health" ]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+networks:
+  becom-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

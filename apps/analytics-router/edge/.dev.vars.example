@@ -1,0 +1,11 @@
+# Local dev secrets — loaded by `wrangler dev`. NEVER commit the real .dev.vars file.
+# Copy this file to .dev.vars and fill in your values.
+
+# Must match INTERNAL_API_KEY in apps/analytics-router/.env
+INTERNAL_API_KEY="change-me-to-a-secure-random-string"
+
+# URL of the local NestJS analytics-router (port 4001 exposed by docker-compose)
+ORIGIN_URL="http://localhost:4001"
+
+# Optional: restrict CORS to your local Next.js dev server
+# CORS_ORIGIN="http://localhost:3000"

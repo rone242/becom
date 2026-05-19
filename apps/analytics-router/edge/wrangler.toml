@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Becom Analytics Edge Worker — Wrangler Configuration
+#  Deploys to Cloudflare Workers (free tier: 100k req/day, <10ms CPU/req)
+# ─────────────────────────────────────────────────────────────────────────────
+name              = "becom-analytics-edge"
+main              = "src/index.ts"
+compatibility_date = "2024-09-23"   # Use latest date for best V8 features
+compatibility_flags = ["nodejs_compat"]
+
+# Workers & Pages → Observability (free, real-time logs in dashboard)
+[observability]
+enabled = true
+
+# ─── KV Namespace (rate-limit sliding window) ─────────────────────────────────
+# Setup:
+#   1. npx wrangler kv namespace create "RATE_LIMIT_KV"
+#   2. Copy the `id` from the output into `id` below
+#   3. npx wrangler kv namespace create "RATE_LIMIT_KV" --preview
+#   4. Copy the preview `id` into `preview_id` below
+[[kv_namespaces]]
+binding    = "RATE_LIMIT_KV"
+id         = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_YOUR_PREVIEW_KV_NAMESPACE_ID"
+
+# ─── Non-secret environment variables ────────────────────────────────────────
+[vars]
+RATE_LIMIT_MAX    = "60"    # max event requests per IP per window
+RATE_LIMIT_WINDOW = "60"    # sliding window in seconds
+# Set to your frontend domain in production (e.g. "https://yourdomain.com")
+# Leave as "*" for open CORS during development
+CORS_ORIGIN       = "*"
+
+# ─── Secrets (set via CLI — never commit to repo) ────────────────────────────
+# Run these commands once to store secrets in Cloudflare:
+#
+#   npx wrangler secret put INTERNAL_API_KEY
+#   npx wrangler secret put ORIGIN_URL
+#
+# INTERNAL_API_KEY  → must match INTERNAL_API_KEY in apps/analytics-router/.env
+# ORIGIN_URL        → public URL of the NestJS analytics-router
+#                     e.g. https://api.yourdomain.com
+#                     or   http://your-server-ip:4001  (for VPS without subdomain)
+
+# ─── Local dev secrets ────────────────────────────────────────────────────────
+# Create apps/analytics-router/edge/.dev.vars (git-ignored) with:
+#   INTERNAL_API_KEY="change-me-to-a-secure-random-string"
+#   ORIGIN_URL="http://localhost:4001"
+
+# ─── Production routes ────────────────────────────────────────────────────────
+# Option A: Dedicated subdomain (recommended)
+#   → analytics.yourdomain.com routes all traffic through the Worker
+#   Uncomment and update:
+#
+# routes = [
+#   { pattern = "analytics.yourdomain.com/*", zone_name = "yourdomain.com" }
+# ]
+
+# Option B: Path-based on your main domain
+#   → yourdomain.com/api/event only — minimal Cloudflare setup
+#   Uncomment and update:
+#
+# routes = [
+#   { pattern = "yourdomain.com/api/event", zone_name = "yourdomain.com" }
+# ]
+
+# ─── Environments ─────────────────────────────────────────────────────────────
+[env.staging]
+name = "becom-analytics-edge-staging"
+vars = { RATE_LIMIT_MAX = "120", CORS_ORIGIN = "*" }
+
+[env.production]
+name = "becom-analytics-edge-production"
+vars = { RATE_LIMIT_MAX = "60", CORS_ORIGIN = "https://yourdomain.com" }

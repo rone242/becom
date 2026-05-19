@@ -1,0 +1,345 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum DeliveryZone {
+  INSIDE_DHAKA
+  OUTSIDE_DHAKA
+}
+
+enum CouponType {
+  PERCENTAGE
+  FLAT
+}
+
+// ─── Analytics Router Enums ───────────────────────────────────────────────────
+
+enum CustomerTier {
+  REGULAR
+  VIP
+  PLATINUM
+}
+
+enum AnalyticsPlatform {
+  FACEBOOK_CAPI
+  GOOGLE_ANALYTICS_4
+  TIKTOK_CAPI
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id             String         @id @default(cuid())
+  name           String
+  phone          String         @unique
+  email          String?        @unique
+  password       String
+  role           Role           @default(CUSTOMER)
+  // Customer tier driven by the Analytics Router's Redis milestone counter
+  tier           CustomerTier   @default(REGULAR)
+  orders         Order[]
+  reviews        Review[]
+  cart           Cart?
+  trackingEvents TrackingEvent[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  image       String    // Cloudinary URL
+  description String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("categories")
+}
+
+model Brand {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  logo      String?   // Cloudinary URL
+  isActive  Boolean   @default(true)
+  products  Product[]
+  createdAt DateTime  @default(now())
+
+  @@map("brands")
+}
+
+model Product {
+  id           String      @id @default(cuid())
+  name         String
+  slug         String      @unique
+  description  String
+  price        Float
+  comparePrice Float?      // original price for strikethrough
+  images       String[]    // Cloudinary URLs (first is primary)
+  stock        Int         @default(0)
+  weight       String?     // "1kg", "500g", "250ml"
+  isOrganic    Boolean     @default(false)
+  isFeatured   Boolean     @default(false)
+  isNewArrival Boolean     @default(false)
+  isActive     Boolean     @default(true)
+  rating       Float       @default(0)
+  reviewCount  Int         @default(0)
+  details      String?     // nutritional/product details (HTML or markdown)
+  termsAndConditions String?
+  whatsappText String?     // pre-filled WhatsApp message override
+  categoryId   String
+  category     Category    @relation(fields: [categoryId], references: [id])
+  brandId      String?
+  brand        Brand?      @relation(fields: [brandId], references: [id])
+  orderItems   OrderItem[]
+  reviews      Review[]
+  cartItems    CartItem[]
+  landingPages LandingPage[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("products")
+}
+
+model LandingPage {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  subtitle      String?
+  badgeText     String?
+  ctaText       String   @default("Order Now")
+  heroImage     String?
+  galleryImages String[]
+  priceOverride Float?
+  introTitle    String?
+  introText     String?
+  benefits      String[]
+  usageTips     String[]
+  highlightText String?
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  sortOrder     Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("landing_pages")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String?    @unique
+  user      User?      @relation(fields: [userId], references: [id])
+  sessionId String?    @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  description String?
+  discount    Float     // e.g. 10 = 10% or ৳10 flat
+  type        CouponType
+  minOrder    Float?    // minimum order value to apply
+  maxUses     Int?
+  usedCount   Int       @default(0)
+  isActive    Boolean   @default(true)
+  expiresAt   DateTime?
+  orders      Order[]
+  createdAt   DateTime  @default(now())
+
+  @@map("coupons")
+}
+
+model Order {
+  id             String       @id @default(cuid())
+  orderNumber    String       @unique @default(cuid()) // human-readable ref
+  userId         String?
+  user           User?        @relation(fields: [userId], references: [id])
+  customerName   String
+  customerPhone  String
+  address        String
+  deliveryZone   DeliveryZone
+  deliveryCharge Float
+  subtotal       Float
+  discount       Float        @default(0)
+  total          Float
+  status         OrderStatus  @default(PENDING)
+  note           String?
+  couponId       String?
+  coupon         Coupon?      @relation(fields: [couponId], references: [id])
+  // ── Steadfast Courier ─────────────────────────────────────────────────────
+  trackingCode   String?      // Steadfast tracking code e.g. "15BAEB8A"
+  consignmentId  Int?         // Steadfast consignment_id
+  courierStatus  String?      // Steadfast delivery_status e.g. "in_review"
+  items          OrderItem[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String  // snapshot at order time
+  productImage String? // snapshot at order time
+  quantity    Int
+  price       Float   // snapshot at order time
+
+  @@map("order_items")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int      // 1-5
+  comment   String
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+model DeliveryConfig {
+  id             String @id @default(cuid())
+  insideDhaka    Float  @default(60)
+  outsideDhaka   Float  @default(100)
+  freeDeliveryAt Float? // order amount for free delivery
+
+  @@map("delivery_config")
+}
+
+model SiteSetting {
+  id                 String   @id @default(cuid())
+  storeName          String   @default("Organic Harvest")
+  whatsappNumber     String   @default("8801XXXXXXXXX")
+  phone              String   @default("01XXXXXXXXX")
+  email              String   @default("info@organicharvest.com")
+  address            String   @default("Dhaka, Bangladesh")
+  socialFacebook     String?
+  socialInstagram    String?
+  heroTitle          String   @default("Eat Pure, Eat Organic")
+  heroSubtitle       String   @default("Fresh from the farm to your table")
+  heroImage          String?  // Cloudinary URL for hero banner background (legacy, single image)
+  heroImages         String[] // Array of Cloudinary URLs for hero slider
+  announcement       String?  // Optional top-bar announcement text
+  featuredProductIds String[] // Product IDs pinned to home hero section
+  brandColor         String?  // Hex color for primary brand color, e.g. "#1a6b2f"
+  faviconUrl         String?  // Cloudinary URL for favicon image
+
+  // ── Finance ──────────────────────────────────────────────────────────────────
+  advancePayment    Json?   // { enabled: bool, percent: number, minOrder: number }
+  paymentMethods    Json?   // { cod: bool, bkash: bool, sslStoreId: string }
+  invoiceSettings   Json?   // { prefix: string, taxText: string, footer: string }
+  rewardPoints      Json?   // { enabled: bool, pointsPer100: number, expiryDays: number }
+
+  // ── Integrations ─────────────────────────────────────────────────────────────
+  smsSettings       Json?   // { provider: string, apiKey: string, template: string }
+  courierSettings   Json?   // { courier: string, token: string, autoBook: bool }
+  fraudCheckApi     Json?   // { enabled: bool, apiKey: string, blockScore: number }
+  socialLogin       Json?   // { google: bool, facebook: bool, redirectUrl: string }
+  chatManagement    Json?   // { whatsapp: string, messengerPageId: string, welcome: string }
+  facebookCatalog   Json?   // { catalogId: string, feedUrl: string, autoSync: bool }
+
+  // ── Storefront / System ───────────────────────────────────────────────────────
+  orderSettings       Json?   // { prefix: string, autoConfirm: bool, lowStock: number }
+  productSettings     Json?   // { requireSku: bool, backorder: bool, status: string }
+  currencyCountry     Json?   // { currency: string, country: string, timezone: string }
+  domainSettings      Json?   // { domain: string, ssl: bool, redirectWww: bool }
+  blogSettings        Json?   // { author: string, comments: bool, meta: string }
+  googleSearchConsole Json?   // { verification: string, sitemapUrl: string, autoSubmit: bool }
+  manageOffers        Json?   // { discount: number, banner: string, flash: bool }
+
+  @@map("site_settings")
+}
+
+// ─── Analytics Router Models ──────────────────────────────────────────────────
+
+/// Stores third-party integration credentials managed by admin.
+/// The analytics-router caches these in Redis (key: integration:config:{platform}).
+/// On update, the cache key is invalidated so the next job fetches fresh credentials.
+model IntegrationSetting {
+  id          String            @id @default(cuid())
+  platform    AnalyticsPlatform @unique
+  isActive    Boolean           @default(false)
+  /// JSON blob of credentials, e.g. { accessToken, pixelId, apiVersion }
+  credentials Json              @default("{}")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("integration_settings")
+}
+
+/// Lightweight audit log of raw events received by the analytics router.
+/// Not used for heavy querying — rows can be TTL-pruned after 30 days.
+model TrackingEvent {
+  id         String   @id @default(cuid())
+  eventName  String   // e.g. "Purchase", "ViewContent", "AddToCart"
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId  String?
+  payload    Json     // raw sanitized payload from frontend
+  status     String   @default("QUEUED") // QUEUED | DELIVERED | FAILED
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([eventName])
+  @@index([createdAt])
+  @@map("tracking_events")
+}

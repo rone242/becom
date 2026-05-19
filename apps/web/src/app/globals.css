@@ -1,0 +1,101 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-primary: #1a6b2f;
+    --brand-accent: #f59e0b;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  /* ─── Buttons ─────────────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg
+           bg-primary text-white font-semibold text-sm
+           hover:bg-primary-hover active:scale-95
+           transition-all duration-200 cursor-pointer;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg
+           border-2 border-primary text-primary font-semibold text-sm
+           hover:bg-primary hover:text-white active:scale-95
+           transition-all duration-200 cursor-pointer;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg
+           text-gray-600 font-medium text-sm
+           hover:bg-gray-100 active:scale-95
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* ─── Cards ───────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-xl shadow-card hover:shadow-card-hover transition-shadow duration-300;
+  }
+
+  /* ─── Product Card ────────────────────────────────────────────────────── */
+  .product-card {
+    @apply card overflow-hidden;
+  }
+
+  .product-card-img {
+    @apply w-full aspect-square object-cover
+           group-hover:scale-105 transition-transform duration-500;
+  }
+
+  /* ─── Section Title ───────────────────────────────────────────────────── */
+  .section-title {
+    @apply font-display text-2xl font-bold text-gray-900;
+  }
+
+  /* ─── Star Rating ─────────────────────────────────────────────────────── */
+  .stars {
+    @apply flex gap-0.5 text-accent;
+  }
+
+  /* ─── Badge ───────────────────────────────────────────────────────────── */
+  .badge-organic {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+           bg-brand-100 text-brand-700 text-xs font-semibold;
+  }
+
+  .badge-new {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full
+           bg-accent text-white text-xs font-semibold;
+  }
+
+  /* ─── Input ───────────────────────────────────────────────────────────── */
+  .form-input {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-200
+           focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-transparent
+           text-sm placeholder:text-gray-400 transition-all duration-200;
+  }
+
+  /* ─── Container ───────────────────────────────────────────────────────── */
+  .container-main {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* ─── Scrollbar hide ──────────────────────────────────────────────────── */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
