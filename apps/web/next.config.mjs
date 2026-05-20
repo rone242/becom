@@ -11,9 +11,9 @@ const nextConfig = {
       // Cloudflare R2 — matches any R2 public URL / custom domain
       { protocol: 'https', hostname: '*.r2.dev' },
       { protocol: 'https', hostname: '*.cloudflare.com' },
-      // Support custom R2 domain (e.g. assets.yourdomain.com)
-      // Add your specific R2_PUBLIC_URL hostname here if using a custom domain
-      { protocol: 'https', hostname: '*.yourdomain.com' },
+      // ⚠️ TODO: Replace with your actual domain before deploying
+      // Example: if your domain is becom.shop, use 'assets.becom.shop'
+      { protocol: 'https', hostname: 'assets.yourdomain.com' },
       // Dev helpers
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'encrypted-tbn0.gstatic.com' },
