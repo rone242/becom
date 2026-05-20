@@ -1,6 +1,7 @@
 [build]
 dockerfilePath = "apps/web/Dockerfile"
 watchPatterns = ["apps/web/**"]
+context = "."
 
 [deploy]
 startCommand = "node server.js"
