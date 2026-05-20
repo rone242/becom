@@ -2,9 +2,10 @@
 # Build from monorepo root so Dockerfile can access all workspaces
 dockerfilePath = "apps/api/Dockerfile"
 watchPatterns = ["apps/api/**", "packages/database/**"]
+context = "."
 
 [deploy]
-startCommand = "node dist/main.js"
+startCommand = "node apps/api/dist/main.js"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
