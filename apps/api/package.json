@@ -3,14 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "prebuild": "prisma generate",
-    "build": "nest build",
-    "dev": "nest start --watch",
-    "start": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "db:generate": "cd ../../packages/database && npx prisma generate",
-    "db:migrate": "cd ../../packages/database && npx prisma migrate dev",
-    "db:push": "cd ../../packages/database && npx prisma db push"
+  "prebuild": "npx prisma generate --schema=../../packages/database/prisma/schema.prisma",
+  "build": "nest build",
+  "dev": "nest start --watch",
+  "start": "node dist/main",
+  "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+  "db:generate": "cd ../../packages/database && npx prisma generate",
+  "db:migrate": "cd ../../packages/database && npx prisma migrate dev",
+  "db:push": "cd ../../packages/database && npx prisma db push"
   },
   "dependencies": {
     "@becom/database": "*",
