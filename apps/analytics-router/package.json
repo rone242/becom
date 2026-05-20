@@ -4,6 +4,7 @@
   "private": true,
   "description": "Event Analytics Router Microservice — routes frontend events to third-party platforms via BullMQ with Redis-first counters",
   "scripts": {
+    "prebuild": "npx prisma generate --schema=../../packages/database/prisma/schema.prisma",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
