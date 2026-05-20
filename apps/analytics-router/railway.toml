@@ -1,0 +1,10 @@
+[build]
+dockerfilePath = "apps/analytics-router/Dockerfile"
+watchPatterns = ["apps/analytics-router/**", "packages/database/**"]
+
+[deploy]
+startCommand = "node dist/main.js"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

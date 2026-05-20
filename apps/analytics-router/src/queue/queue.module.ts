@@ -17,17 +17,22 @@ import { StrategiesModule } from '../strategies/strategies.module';
      */
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        connection: {
-          url: config.get<string>('REDIS_URL'),
-          maxRetriesPerRequest: null, // Required by BullMQ for blocking commands
-          enableReadyCheck: false,
-        },
-        defaultJobOptions: {
-          removeOnComplete: { count: 500 },
-          removeOnFail: { count: 200 },
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL') ?? '';
+        const isTls = redisUrl.startsWith('rediss://');
+        return {
+          connection: {
+            url: redisUrl,
+            maxRetriesPerRequest: null, // Required by BullMQ for blocking commands
+            enableReadyCheck: false,
+            ...(isTls && { tls: { rejectUnauthorized: false } }),
+          },
+          defaultJobOptions: {
+            removeOnComplete: { count: 500 },
+            removeOnFail: { count: 200 },
+          },
+        };
+      },
       inject: [ConfigService],
     }),
 

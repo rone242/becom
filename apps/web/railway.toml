@@ -1,0 +1,10 @@
+[build]
+dockerfilePath = "apps/web/Dockerfile"
+watchPatterns = ["apps/web/**"]
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

@@ -13,8 +13,23 @@ RUN npm ci
 
 COPY . .
 
+# NEXT_PUBLIC_* vars must be declared as build ARGs — Next.js bakes them
+# into the static bundle at build time (they are NOT available at runtime)
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_ANALYTICS_ROUTER_URL
+ARG NEXT_PUBLIC_WHATSAPP_NUMBER
+ARG NEXT_PUBLIC_GTM_ID
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_ANALYTICS_ROUTER_URL=$NEXT_PUBLIC_ANALYTICS_ROUTER_URL
+ENV NEXT_PUBLIC_WHATSAPP_NUMBER=$NEXT_PUBLIC_WHATSAPP_NUMBER
+ENV NEXT_PUBLIC_GTM_ID=$NEXT_PUBLIC_GTM_ID
+
 RUN npm run build --workspace=apps/web
 
+# ─────────────────────────────────────────────
+# Stage 2 — Runner (minimal standalone image)
+# ─────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -26,16 +41,15 @@ ENV HOSTNAME=0.0.0.0
 RUN addgroup -S nodejs \
   && adduser -S nextjs -G nodejs
 
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/web/package.json ./apps/web/
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/next.config.mjs ./apps/web/
+# standalone output is a self-contained server — no need to copy node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
 USER nextjs
 
 EXPOSE 3000
 
+# standalone server entry point lives at apps/web/server.js
 WORKDIR /app/apps/web
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

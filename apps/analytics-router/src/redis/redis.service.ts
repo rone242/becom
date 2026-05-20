@@ -30,12 +30,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Upstash Redis uses TLS (rediss://) — ioredis needs tls option enabled
+    const isTls = url.startsWith('rediss://');
+
     this.client = new Redis(url, {
       lazyConnect: true,
       maxRetriesPerRequest: 3,
       connectTimeout: 5_000,
       retryStrategy: (times) =>
         times > 5 ? null : Math.min(times * 300, 2_000),
+      ...(isTls && { tls: { rejectUnauthorized: false } }),
     });
 
     this.client.on('ready', () => {

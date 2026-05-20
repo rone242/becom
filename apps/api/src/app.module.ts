@@ -17,6 +17,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { SettingsModule } from './settings/settings.module';
 import { LandingPagesModule } from './landing-pages/landing-pages.module';
 import { CourierModule } from './courier/courier.module';
+import { HealthController } from './health/health.controller';
 
 
 @Module({
@@ -40,5 +41,6 @@ import { CourierModule } from './courier/courier.module';
     LandingPagesModule,
     CourierModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

@@ -42,7 +42,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 4000;
-  await app.listen(port, '[IP_ADDRESS]');
+  await app.listen(port, '0.0.0.0');
   console.log(`🚀 API running on: http://localhost:${port}/api`);
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
 }
