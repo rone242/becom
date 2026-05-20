@@ -1,7 +1,7 @@
 [build]
 dockerfilePath = "apps/analytics-router/Dockerfile"
-watchPatterns = ["apps/analytics-router/**", "packages/database/**"]
-context = "."
+watchPatterns = ["apps/analytics-router/**", "packages/**"]
+context = "../.."
 
 [deploy]
 startCommand = "node apps/analytics-router/dist/main.js"
