@@ -41,8 +41,8 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  const port = process.env.PORT || 7000;
-  await app.listen(port);
+  const port = process.env.PORT || 4000;
+  await app.listen(port, '[IP_ADDRESS]');
   console.log(`🚀 API running on: http://localhost:${port}/api`);
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
 }
