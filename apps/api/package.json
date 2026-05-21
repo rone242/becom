@@ -2,6 +2,9 @@
   "name": "@becom/api",
   "version": "0.0.1",
   "private": true,
+  "prisma": {
+    "seed": "ts-node --transpile-only --compiler-options {\"module\":\"CommonJS\"} ../../packages/database/prisma/seed.ts"
+  },
   "scripts": {
     "prebuild": "npx prisma generate --schema=../../packages/database/prisma/schema.prisma",
     "build": "nest build",
