@@ -1,10 +1,11 @@
 import {
-  Controller, Post, UploadedFile, UseInterceptors, Query, UseGuards, BadRequestException,
+  Controller, Post, UploadedFile, UseInterceptors, Query,
+  UseGuards, BadRequestException, Inject,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { R2Service } from './r2.service';
+import { STORAGE_SERVICE } from './uploads.module';
 import { JwtAuthGuard, RolesGuard, Roles } from '../common/guards/auth.guard';
 
 @ApiTags('Uploads')
@@ -13,7 +14,9 @@ import { JwtAuthGuard, RolesGuard, Roles } from '../common/guards/auth.guard';
 @Roles(Role.ADMIN)
 @ApiBearerAuth()
 export class UploadsController {
-  constructor(private r2Service: R2Service) {}
+  constructor(
+    @Inject(STORAGE_SERVICE) private storageService: any,
+  ) {}
 
   @Post('image')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
@@ -24,7 +27,7 @@ export class UploadsController {
     @Query('folder') folder: 'products' | 'categories' | 'brands' | 'landing-pages' | 'hero-slider' = 'products',
   ) {
     if (!file) throw new BadRequestException('No file provided');
-    const result = await this.r2Service.uploadImage(file.buffer, folder);
+    const result = await this.storageService.uploadImage(file.buffer, folder);
     return { url: result.url, publicId: result.publicId };
   }
 }

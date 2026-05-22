@@ -1,11 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser = require('cookie-parser');
+import * as path from 'path';
+import * as fs from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Serve uploaded files as static assets (used when STORAGE_DRIVER=local)
+  const uploadDir = process.env.LOCAL_UPLOAD_DIR || '/app/uploads';
+  fs.mkdirSync(uploadDir, { recursive: true });
+  app.useStaticAssets(uploadDir, { prefix: '/uploads' });
 
   // Cookie parser
   app.use(cookieParser());
