@@ -107,9 +107,9 @@ function DailyChart({ data }: { data: DailyTotal[] }) {
       <div className="flex items-end gap-1 h-28">
         {data.map((d) => {
           const receivedH = Math.round(((d.received || d.sent + d.failed) / peak) * 100);
-          const sentH     = Math.round(((d.sent)   / peak) * 100);
-          const failedH   = Math.round(((d.failed) / peak) * 100);
-          const label     = d.date.slice(5); // MM-DD
+          const sentH = Math.round(((d.sent) / peak) * 100);
+          const failedH = Math.round(((d.failed) / peak) * 100);
+          const label = d.date.slice(5); // MM-DD
           return (
             <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${d.date}\nReceived: ${d.received}\nSent: ${d.sent}  Failed: ${d.failed}`}>
               <div className="w-full flex flex-col justify-end gap-px" style={{ height: '88px' }}>
@@ -215,9 +215,8 @@ function PlatformCard({
   });
 
   return (
-    <div className={`rounded-xl border-2 bg-white shadow-sm transition-all ${
-      expanded ? `${platform.border} shadow-md` : 'border-gray-100'
-    }`}>
+    <div className={`rounded-xl border-2 bg-white shadow-sm transition-all ${expanded ? `${platform.border} shadow-md` : 'border-gray-100'
+      }`}>
       <div className="flex items-center gap-3 p-4">
         <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${platform.gradient} flex items-center justify-center text-2xl shrink-0`}>
           {platform.icon}
@@ -239,9 +238,8 @@ function PlatformCard({
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
-          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            expanded ? 'bg-gray-100 text-gray-700' : 'bg-primary/10 text-primary hover:bg-primary/20'
-          }`}
+          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${expanded ? 'bg-gray-100 text-gray-700' : 'bg-primary/10 text-primary hover:bg-primary/20'
+            }`}
         >
           {expanded ? 'Hide' : 'Setup'}
         </button>
@@ -309,16 +307,16 @@ function EventStatsPanel() {
   const [days, setDays] = useState(7);
 
   const from = isoDate(-days + 1);
-  const to   = isoDate(0);
+  const to = isoDate(0);
 
   const { data: stats, isLoading, isError, refetch, isFetching } = useQuery<StatsData>({
     queryKey: ['tracking-stats', days],
-    queryFn:  () => trackingApi.getStats(from, to),
+    queryFn: () => trackingApi.getStats(from, to),
     retry: 1,
     staleTime: 60_000,
   });
 
-  const total      = stats?.total ?? { sent: 0, failed: 0 };
+  const total = stats?.total ?? { sent: 0, failed: 0 };
   const totalEvents = total.sent + total.failed;
   const successRate = totalEvents > 0
     ? Math.round((total.sent / totalEvents) * 100)
@@ -328,7 +326,7 @@ function EventStatsPanel() {
   const byPlatform: Record<string, { sent: number; failed: number }> = {};
   stats?.rows.forEach((r) => {
     if (!byPlatform[r.platform]) byPlatform[r.platform] = { sent: 0, failed: 0 };
-    byPlatform[r.platform].sent   += r.sent;
+    byPlatform[r.platform].sent += r.sent;
     byPlatform[r.platform].failed += r.failed;
   });
 
@@ -347,11 +345,10 @@ function EventStatsPanel() {
               <button
                 key={d}
                 onClick={() => setDays(d)}
-                className={`px-3 py-1.5 transition-colors ${
-                  days === d
+                className={`px-3 py-1.5 transition-colors ${days === d
                     ? 'bg-primary text-white'
                     : 'text-gray-600 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {d}d
               </button>
@@ -433,9 +430,9 @@ function EventStatsPanel() {
             </p>
             <div className="space-y-2">
               {Object.entries(byPlatform).map(([pid, counts]) => {
-                const total   = counts.sent + counts.failed;
-                const pct     = total > 0 ? Math.round((counts.sent / total) * 100) : 0;
-                const color   = pct >= 90 ? 'bg-emerald-500' : pct >= 70 ? 'bg-amber-400' : 'bg-red-500';
+                const total = counts.sent + counts.failed;
+                const pct = total > 0 ? Math.round((counts.sent / total) * 100) : 0;
+                const color = pct >= 90 ? 'bg-emerald-500' : pct >= 70 ? 'bg-amber-400' : 'bg-red-500';
                 return (
                   <div key={pid} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50">
                     <span className="text-xl">
@@ -458,9 +455,8 @@ function EventStatsPanel() {
                         />
                       </div>
                     </div>
-                    <span className={`text-xs font-bold w-10 text-right ${
-                      pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-amber-600' : 'text-red-500'
-                    }`}>
+                    <span className={`text-xs font-bold w-10 text-right ${pct >= 90 ? 'text-emerald-600' : pct >= 70 ? 'text-amber-600' : 'text-red-500'
+                      }`}>
                       {pct}%
                     </span>
                   </div>
@@ -512,7 +508,7 @@ export default function AdminTrackingPage() {
     rawList.forEach((item) => { integrationMap[item.platform] = item; });
   }
 
-  const activeCount     = Object.values(integrationMap).filter((i) => i.isActive).length;
+  const activeCount = Object.values(integrationMap).filter((i) => i.isActive).length;
   const configuredCount = Object.values(integrationMap).filter(
     (i) => Object.keys(i.credentials ?? {}).length > 0
   ).length;
@@ -569,7 +565,7 @@ export default function AdminTrackingPage() {
           <div>
             <p className="font-bold text-amber-900">Unable to connect to analytics-router</p>
             <p className="text-sm text-amber-800 mt-1">
-              Run: <code className="bg-amber-100 px-1 rounded font-mono text-xs">docker compose up -d</code>
+              Run: <code className="bg-amber-100 px-1 rounded font-mono text-xs">docker d</code>
             </p>
           </div>
         </div>
@@ -583,15 +579,15 @@ export default function AdminTrackingPage() {
         <div className="space-y-3">
           {isLoading
             ? [1, 2, 3].map((i) => (
-                <div key={i} className="h-16 rounded-lg border border-gray-100 bg-gray-50 animate-pulse" />
-              ))
+              <div key={i} className="h-16 rounded-lg border border-gray-100 bg-gray-50 animate-pulse" />
+            ))
             : PLATFORMS.map((platform) => (
-                <PlatformCard
-                  key={platform.id}
-                  platform={platform}
-                  integration={integrationMap[platform.id]}
-                />
-              ))}
+              <PlatformCard
+                key={platform.id}
+                platform={platform}
+                integration={integrationMap[platform.id]}
+              />
+            ))}
         </div>
       </div>
 
