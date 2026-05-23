@@ -7,23 +7,24 @@ import { EventModule } from './event/event.module';
 import { QueueModule } from './queue/queue.module';
 import { StrategiesModule } from './strategies/strategies.module';
 import { CounterModule } from './counter/counter.module';
+import { StatsModule } from './stats/stats.module';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [
-    // Load .env file — isGlobal makes ConfigService available everywhere
     ConfigModule.forRoot({ isGlobal: true }),
 
-    // Infrastructure (both are @Global so no re-importing needed downstream)
+    // Infrastructure
     PrismaModule,
     RedisModule,
 
     // Domain modules
     IntegrationModule,   // Admin CRUD for platform credentials + cache invalidation
-    EventModule,         // POST /api/event  → 202 fire-and-forget
-    QueueModule,         // BullMQ registration + EventProcessor worker
-    StrategiesModule,    // Facebook, GA4, TikTok strategy implementations
-    CounterModule,       // Redis INCR counters + VIP milestone Prisma writes
+    EventModule,         // POST /api/event → 202 fire-and-forget, Redis TTL storage
+    QueueModule,         // BullMQ + EventProcessor worker
+    StrategiesModule,    // Facebook CAPI, GA4, TikTok CAPI strategies
+    CounterModule,       // Redis purchase counters → VIP milestone
+    StatsModule,         // GET /api/admin/stats — daily sent/failed counts
   ],
   controllers: [HealthController],
 })

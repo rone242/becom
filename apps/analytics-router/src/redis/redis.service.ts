@@ -67,6 +67,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this._isReady;
   }
 
+  get rawClient(): Redis {
+    return this.client;
+  }
+
   // ── Generic cache helpers ─────────────────────────────────────────────────
 
   async get<T>(key: string): Promise<T | null> {

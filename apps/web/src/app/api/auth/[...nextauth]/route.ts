@@ -59,7 +59,7 @@ const handler = NextAuth({
   pages: {
     signIn: '/auth/login',
   },
-  session: { strategy: 'jwt', maxAge: 15 * 60 }, // 15 minutes auto sign-out
+  session: { strategy: 'jwt', maxAge: 7 * 24 * 60 * 60 }, // 7 days
 });
 
 export { handler as GET, handler as POST };

@@ -5,7 +5,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { STORAGE_SERVICE } from './uploads.module';
+import { STORAGE_SERVICE } from './uploads.constants';
 import { JwtAuthGuard, RolesGuard, Roles } from '../common/guards/auth.guard';
 
 @ApiTags('Uploads')

@@ -8,7 +8,6 @@ COPY package.json package-lock.json turbo.json ./
 COPY apps/api/package.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
 COPY apps/analytics-router/package.json ./apps/analytics-router/
-COPY apps/analytics-router/edge/package.json ./apps/analytics-router/edge/
 COPY packages/database/package.json ./packages/database/
 
 RUN npm ci

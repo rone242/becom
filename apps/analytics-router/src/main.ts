@@ -6,22 +6,16 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const logger = new Logger('AnalyticsRouter');
   const app = await NestFactory.create(AppModule, {
-    // Suppress verbose logs in production; use a structured logger in prod
     logger: process.env.NODE_ENV === 'production'
       ? ['error', 'warn', 'log']
       : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
-  // Global validation — strips unknown fields, transforms types
   app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
+    new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
   );
 
-  // CORS — only allow the Next.js frontend and the main API internally
+  // CORS — allow Next.js frontend
   app.enableCors({
     origin: [
       process.env.FRONTEND_URL ?? 'http://localhost:3000',
@@ -30,19 +24,15 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Swagger docs for admin & event endpoints
+  // Swagger docs — JWT Bearer only (no InternalKey)
   const config = new DocumentBuilder()
     .setTitle('Analytics Router')
-    .setDescription(
-      'Enterprise event analytics microservice — routes frontend events to Facebook CAPI, GA4, and TikTok CAPI.',
-    )
-    .setVersion('1.0')
+    .setDescription('Event analytics microservice — routes events to Facebook CAPI, GA4, TikTok CAPI. Events are stored in Redis (10-min TTL) then dispatched asynchronously.')
+    .setVersion('2.0')
     .addBearerAuth()
-    .addApiKey({ type: 'apiKey', in: 'header', name: 'x-internal-key' }, 'InternalKey')
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, config));
 
-  // All routes live under /api (e.g. POST /api/event, GET /api/admin/integrations)
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT ?? 4001;

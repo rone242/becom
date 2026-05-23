@@ -1,55 +1,51 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { TrackEventDto } from './dto/track-event.dto';
 import { EVENT_QUEUE_NAME, EventJobData } from '../queue/event.queue';
+import { StatsService } from '../stats/stats.service';
 import { v4 as uuid } from 'uuid';
+
+const EVENT_TTL_SECONDS = 600; // 10 minutes
+
+/**
+ * Special platform key to track total events received at the ingest layer.
+ * This lets the admin stats panel show non-zero counts even when no
+ * third-party platforms are configured or active yet.
+ */
+const PLATFORM_TOTAL = 'TOTAL';
 
 @Injectable()
 export class EventService {
   private readonly logger = new Logger(EventService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+    private readonly statsService: StatsService,
     @InjectQueue(EVENT_QUEUE_NAME) private readonly eventQueue: Queue,
   ) {}
 
   /**
    * Ingests a raw frontend event:
    *
-   * 1. Generate a deduplication ID (eventId) for idempotency
-   * 2. Write a lightweight TrackingEvent row (status: QUEUED) — fast insert, no joins
-   * 3. Push the job to BullMQ — returns in microseconds
-   * 4. Return the trackingId to the caller (included in 202 response)
-   *
-   * The entire method is designed to complete in < 5ms under normal conditions.
-   * All heavy platform API calls happen asynchronously in EventProcessor.
+   * 1. Record +1 to TOTAL received count (admin stats always update)
+   * 2. Generate a unique trackingId
+   * 3. Store full event data in Redis with 10-min TTL
+   * 4. Push a lightweight job to BullMQ (only trackingId)
+   * 5. Return 202 immediately
    */
   async ingest(dto: TrackEventDto): Promise<{ trackingId: string }> {
     const trackingId = uuid();
-    const eventTime = dto.eventTime
-      ? new Date(dto.eventTime)
-      : new Date();
+    const eventTime = dto.eventTime ? new Date(dto.eventTime) : new Date();
 
-    // ── Step 1: Lightweight DB audit log ──────────────────────────────────
-    // We use createMany-equivalent — a single non-blocking insert with
-    // minimal fields to keep the Neon DB compute cost near-zero.
-    await this.prisma.trackingEvent.create({
-      data: {
-        id: trackingId,
-        eventName: dto.eventName,
-        userId: dto.userData?.userId ?? null,
-        sessionId: dto.sessionId ?? null,
-        payload: dto as unknown as Prisma.InputJsonValue,
-        status: 'QUEUED',
-        createdAt: eventTime,
-      },
-    });
+    // ── Step 0: Count every received event regardless of platform config ──
+    // recordSent('TOTAL') — uses 'sent' column to track received count so
+    // the dashboard always shows incoming traffic even before platforms activate.
+    await this.statsService.recordSent(PLATFORM_TOTAL);
 
-    // ── Step 2: Enqueue to BullMQ (non-blocking) ──────────────────────────
-    const jobData: EventJobData = {
+    // ── Step 1: Store raw event in Redis with 10-min TTL ──────────────────
+    const payload: EventJobData = {
       trackingId,
       eventName: dto.eventName,
       userData: dto.userData,
@@ -60,36 +56,34 @@ export class EventService {
       pageUrl: dto.pageUrl,
       sessionId: dto.sessionId,
     };
+    await this.redis.set(`event:${trackingId}`, payload, EVENT_TTL_SECONDS);
 
-    await this.eventQueue.add('dispatch', jobData, {
-      jobId: trackingId, // Deduplication key — prevents double-processing on retries
+    // ── Step 2: Enqueue lightweight job to BullMQ ─────────────────────────
+    await this.eventQueue.add('dispatch', { trackingId }, {
+      jobId: trackingId,
       attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2_000, // 2s → 4s → 8s
-      },
-      removeOnComplete: { count: 500 }, // Keep last 500 completed for inspection
-      removeOnFail: { count: 200 },     // Keep last 200 failed for debugging
+      backoff: { type: 'exponential', delay: 2_000 },
+      removeOnComplete: { count: 200 },
+      removeOnFail: { count: 50 },
     });
 
-    this.logger.log(
-      `Event queued: ${dto.eventName} [trackingId=${trackingId}]`,
-    );
-
+    this.logger.log(`Event queued: ${dto.eventName} [trackingId=${trackingId}]`);
     return { trackingId };
   }
 
   /**
-   * Update the status of a tracking event after processing.
-   * Called by EventProcessor after all strategies complete.
+   * Fetch raw event data from Redis.
+   * Returns null if event has expired (TTL elapsed) or already processed.
    */
-  async updateStatus(
-    trackingId: string,
-    status: 'DELIVERED' | 'FAILED',
-  ): Promise<void> {
-    await this.prisma.trackingEvent.updateMany({
-      where: { id: trackingId },
-      data: { status },
-    });
+  async fetchEventData(trackingId: string): Promise<EventJobData | null> {
+    return this.redis.get<EventJobData>(`event:${trackingId}`);
+  }
+
+  /**
+   * Delete event from Redis after successful processing.
+   * Frees memory immediately instead of waiting for TTL.
+   */
+  async deleteEventData(trackingId: string): Promise<void> {
+    await this.redis.del(`event:${trackingId}`);
   }
 }

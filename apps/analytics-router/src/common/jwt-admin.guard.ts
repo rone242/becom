@@ -10,12 +10,19 @@ import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
 /**
- * Lightweight JWT guard for admin-only routes (/api/admin/*).
- * Reads the Bearer token from the Authorization header and validates
- * against the same JWT_SECRET used by the main API.
+ * Dual-mode guard for the analytics-router event endpoint.
  *
- * In production, consider replacing with a shared auth service call
- * or a signed admin token with short expiry.
+ * Accepts either:
+ *   A) Authorization: Bearer <JWT signed with JWT_SECRET, payload: { role: "ADMIN" }>
+ *      → used by admin dashboard / external callers
+ *
+ *   B) x-internal-key: <INTERNAL_API_KEY>
+ *      → used by the Next.js server-side /api/track proxy for internal
+ *        service-to-service calls (no JWT needed, shared secret is enough)
+ *
+ * Mode B is safe because INTERNAL_API_KEY is only available server-side
+ * (never exposed in the browser bundle) and traffic flows inside the
+ * Docker network in production.
  */
 @Injectable()
 export class JwtAdminGuard implements CanActivate {
@@ -26,10 +33,21 @@ export class JwtAdminGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
-    const authHeader = req.headers.authorization;
 
+    // ── Mode B: internal service-to-service key ───────────────────────────────
+    const internalKey = this.config.get<string>('INTERNAL_API_KEY');
+    const providedKey = req.headers['x-internal-key'] as string | undefined;
+
+    if (internalKey && providedKey && providedKey === internalKey) {
+      return true; // trusted internal caller
+    }
+
+    // ── Mode A: Bearer JWT ────────────────────────────────────────────────────
+    const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing Authorization header');
+      throw new UnauthorizedException(
+        'Provide either Authorization: Bearer <jwt> or x-internal-key header',
+      );
     }
 
     try {

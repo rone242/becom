@@ -66,7 +66,6 @@ model User {
   orders         Order[]
   reviews        Review[]
   cart           Cart?
-  trackingEvents TrackingEvent[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -326,20 +325,17 @@ model IntegrationSetting {
   @@map("integration_settings")
 }
 
-/// Lightweight audit log of raw events received by the analytics router.
-/// Not used for heavy querying — rows can be TTL-pruned after 30 days.
-model TrackingEvent {
-  id         String   @id @default(cuid())
-  eventName  String   // e.g. "Purchase", "ViewContent", "AddToCart"
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  sessionId  String?
-  payload    Json     // raw sanitized payload from frontend
-  status     String   @default("QUEUED") // QUEUED | DELIVERED | FAILED
-  createdAt  DateTime @default(now())
+/// Daily analytics summary per platform.
+/// Events are temporarily stored in Redis (10-min TTL); only aggregated counts are persisted here.
+model AnalyticsDaily {
+  id        String   @id @default(cuid())
+  date      String   // "2026-05-22"
+  platform  String   // "FACEBOOK_CAPI" | "GOOGLE_ANALYTICS_4" | "TIKTOK_CAPI"
+  sent      Int      @default(0)
+  failed    Int      @default(0)
+  updatedAt DateTime @updatedAt
 
-  @@index([userId])
-  @@index([eventName])
-  @@index([createdAt])
-  @@map("tracking_events")
+  @@unique([date, platform])
+  @@index([date])
+  @@map("analytics_daily")
 }

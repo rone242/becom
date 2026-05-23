@@ -8,24 +8,72 @@ const api = axios.create({
 
 // Attach JWT token from NextAuth session automatically
 api.interceptors.request.use(async (config) => {
-  const session = await getSession() as any;
-  if (session?.accessToken) {
-    config.headers.Authorization = `Bearer ${session.accessToken}`;
-  } else {
-    console.warn('Axios Interceptor: No accessToken found in session', session);
+  try {
+    const session = await getSession() as any;
+    
+    if (session?.accessToken) {
+      config.headers.Authorization = `Bearer ${session.accessToken}`;
+      console.log('[API Interceptor] ✓ Authorization header added', {
+        hasToken: !!session.accessToken,
+        tokenLength: session.accessToken.length,
+      });
+    } else {
+      console.warn('[API Interceptor] ⚠️ No accessToken found in session:', {
+        hasSession: !!session,
+        sessionKeys: session ? Object.keys(session) : [],
+      });
+    }
+  } catch (error) {
+    console.error('[API Interceptor] ❌ Error getting session:', error);
   }
+  
+  // Don't set Content-Type for FormData - axios will set it automatically with boundary
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+    console.log('[API Interceptor] FormData request - letting axios set Content-Type');
+  }
+  
   return config;
 });
 
-// Analytics-router client (port 4001) — used by the admin tracking page
+// Error response interceptor for debugging
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.error('[API Error] 401 Unauthorized', {
+        url: error.config?.url,
+        method: error.config?.method,
+        hasAuthHeader: !!error.config?.headers?.Authorization,
+        authHeaderPreview: error.config?.headers?.Authorization ? 
+          error.config.headers.Authorization.substring(0, 20) + '...' : null,
+        responseData: error.response?.data,
+      });
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Analytics-router Axios client (port 4001) — used ONLY by the admin integration
+// management page. No JWT interceptor: admin pages always have a session, and
+// attaching a session-less interceptor was causing "No accessToken" warnings for
+// every page load. The x-internal-key header is added per-request by the caller.
 const analyticsRouter = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_ANALYTICS_ROUTER_URL || 'http://localhost:5001/api',
+  baseURL: process.env.NEXT_PUBLIC_ANALYTICS_ROUTER_URL || 'http://localhost:4001/api',
   headers: { 'Content-Type': 'application/json' },
 });
+
+// Only attach auth when a session is present — silently skip for guests
 analyticsRouter.interceptors.request.use(async (config) => {
-  const session = await getSession() as any;
-  if (session?.accessToken) {
-    config.headers.Authorization = `Bearer ${session.accessToken}`;
+  try {
+    const session = await getSession() as any;
+    if (session?.accessToken) {
+      config.headers.Authorization = `Bearer ${session.accessToken}`;
+    }
+    // No warning when session is absent — this client is admin-only so the
+    // login redirect will handle unauthenticated access before requests fire
+  } catch {
+    // Session errors are non-fatal; request proceeds without auth header
   }
   return config;
 });
@@ -143,9 +191,12 @@ export const uploadsApi = {
   uploadImage: (file: File, folder: 'products' | 'categories' | 'brands' | 'landing-pages' | 'hero-slider' = 'products') => {
     const form = new FormData();
     form.append('file', file);
-    return api.post(`/uploads/image?folder=${folder}`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    
+    // Don't manually set Content-Type or Authorization here
+    // Let the interceptor and axios handle it automatically
+    // axios will automatically set multipart/form-data with proper boundary
+    // and the interceptor will add the Authorization header
+    return api.post(`/uploads/image?folder=${folder}`, form);
   },
 };
 
@@ -162,6 +213,28 @@ export const trackingApi = {
   bustCache: (platform: string) => analyticsRouter.delete(`/admin/integrations/cache/${platform}`),
   /** DELETE /api/admin/integrations/cache — bust ALL caches */
   bustAllCaches: () => analyticsRouter.delete('/admin/integrations/cache'),
+  /**
+   * GET /api/admin/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
+   * Proxied through Next.js /api/admin/stats to attach x-internal-key server-side.
+   * Returns: { from, to, total: { sent, failed }, rows: [...] }
+   */
+  getStats: (from?: string, to?: string): Promise<{
+    from: string;
+    to: string;
+    received: number;
+    total: { sent: number; failed: number };
+    rows: Array<{ date: string; platform: string; sent: number; failed: number }>;
+    dailyTotals: Array<{ date: string; received: number; sent: number; failed: number }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to)   params.set('to',   to);
+    return fetch(`/api/admin/stats?${params.toString()}`, { cache: 'no-store' })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Stats request failed: ${r.status}`);
+        return r.json();
+      });
+  },
 };
 
 // ─── Courier (Steadfast) ──────────────────────────────────────────────────────

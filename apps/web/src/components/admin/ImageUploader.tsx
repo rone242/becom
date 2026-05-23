@@ -45,8 +45,24 @@ export function ImageUploader({
           // API returns { url, publicId } — prefer `url`, fallback to `secure_url` for safety
           const url = data?.url || data?.secure_url || (typeof data === 'string' ? data : null);
           if (url) newUrls.push(url);
-        } catch (err) {
-          console.error('Image upload failed:', err);
+        } catch (err: any) {
+          const statusCode = err?.response?.status;
+          const errorMsg = err?.response?.data?.message || err?.message || 'Image upload failed';
+          
+          console.error('[ImageUploader] Upload failed:', {
+            status: statusCode,
+            message: errorMsg,
+            error: err,
+          });
+          
+          // Show user-friendly error messages
+          if (statusCode === 401) {
+            alert('Your session has expired. Please log in again to upload images.');
+          } else if (statusCode === 403) {
+            alert('You do not have permission to upload images. Admin access required.');
+          } else {
+            console.error('Image upload error:', errorMsg);
+          }
           /* skip failed */
         }
         setProgress((p) => p.slice(1));

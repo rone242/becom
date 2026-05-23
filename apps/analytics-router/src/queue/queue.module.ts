@@ -7,6 +7,7 @@ import { IntegrationModule } from '../integration/integration.module';
 import { EventModule } from '../event/event.module';
 import { CounterModule } from '../counter/counter.module';
 import { StrategiesModule } from '../strategies/strategies.module';
+import { StatsModule } from '../stats/stats.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { StrategiesModule } from '../strategies/strategies.module';
     EventModule,
     CounterModule,
     StrategiesModule,
+    StatsModule,
   ],
   providers: [EventProcessor],
 })
